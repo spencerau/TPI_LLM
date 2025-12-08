@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: tpi-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__GRPC_PORT=6334
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  tika:
+    image: apache/tika:latest
+    container_name: tpi-tika
+    ports:
+      - "9998:9998"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9998/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tpi-streamlit
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./configs:/app/configs:ro
+      - ./tpi_documents:/app/tpi_documents:ro
+      - ./src:/app/src
+    environment:
+      - DOCKER_ENV=true
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - TIKA_SERVER_ENDPOINT=http://tika:9998
+      - OLLAMA_BASE_URL=http://dgx0.chapman.edu:11434
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      tika:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  qdrant_data:
+    driver: local
+
+networks:
+  default:
+    name: tpi-network

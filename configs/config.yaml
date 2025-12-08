@@ -1,0 +1,155 @@
+qdrant:
+  # Use 'qdrant' for Docker (service name), or 'localhost' when running services locally
+  host: qdrant
+  port: 6333
+  timeout: 60
+  collections:
+    application_interview_process: application_interview_process
+    legal_policy: legal_policy
+    best_practices: best_practices
+    workplace_partnerships: workplace_partnerships
+    evaluation: evaluation
+
+data:
+  application_interview_process: tpi_documents/application_interview_process
+  legal_policy: tpi_documents/legal_policy
+  best_practices: tpi_documents/best_practices_supporting_pwd_workplace
+  workplace_partnerships: tpi_documents/workplace_partnerships
+  evaluation: tpi_documents/evaluation_impact_continuousImprovement
+
+embedding:
+  model: bge-m3:567m
+  # ollama_host: localhost
+  ollama_host: dgx0.chapman.edu
+  ollama_port: 11434
+  timeout: 120
+  keep_alive: 30m
+  retry_attempts: 7
+  retry_delay: 1.5
+  rate_limit_delay: 1.5
+  batch_size: 32
+
+llm:
+  primary_model: gpt-oss:120b
+  ollama_host: dgx0.chapman.edu
+  ollama_port: 11434
+  timeout: 300
+  keep_alive: 30m
+  temperature: 0.1
+  max_tokens: 25000
+  num_ctx: 128000
+  system_prompt: |
+    You are a helpful assistant specializing in employment resources for people with disabilities.
+    You help answer questions about job applications, interviews, workplace accommodations, 
+    legal policies, and best practices for inclusive employment.
+    Answer questions based on the provided context from TPI (Thompson Policy Institute of Disability) documents.
+    If you don't have enough information to answer, say so clearly.
+  # router_host: localhost
+  # router_port: 11434
+  router_host: dgx0.chapman.edu
+  router_port: 11435
+  router_timeout: 210
+
+chunker:
+  strategy: recursive
+  target_tokens: 768
+  min_tokens: 300
+  overlap_ratio: 0.15
+  respect_headings: true
+
+retrieval:
+  top_k: 4
+  rerank_top_k: 2
+
+rag:
+  base_chunks_per_collection: 8
+  priority_boost: 4
+  collection_priority: []
+
+summary:
+  #When true, the system first searches document summaries instead of raw chunks
+  enable_summary_gating: true
+  word_count: 200
+  embed_summaries: true
+  #When true, after finding matching chunks, returns the entire source document instead of just the chunk
+  return_parent_docs: true
+
+query_router:
+  default_collections: [application_interview_process, legal_policy, best_practices, workplace_partnerships, evaluation]
+  collection_descriptions:
+    application_interview_process: Job Application & Interview Process for People with Disabilities (PWD), 
+                     Application Supports, Accessible job descriptions (examples/templates), 
+                     Guidance on inclusive language in job postings,
+                     Tips for applicants with disabilities (resume, disclosure, accommodation requests),
+                     Employer checklists for accessibility in the application process,
+                     Interview Preparation & Accessibility,
+                     Interview best practices for candidates with disabilities,
+                     Employer training on bias-free interviewing,
+                     Reasonable accommodations in interviews (virtual & in-person),
+                     Sample interview questions that align with essential job functions
+
+    legal_policy: Legal & Policy Resources,
+                  ADA & Section 504 employer obligations,
+                  California Fair Employment and Housing Act (FEHA) overview (if CA-specific),
+                  Reasonable accommodation guidance,
+                  Templates for accommodation documentation,
+                  State and federal policy briefs (WIOA, IDEA transition, etc.)
+
+    best_practices: Best Practices for Supporting PWD in the Workplace,
+                    Onboarding & Training,
+                    Inclusive onboarding checklist,
+                    Accessibility training modules,
+                    Peer mentor or job coach resources,
+                    Sample individualized onboarding plans,
+                    Workplace Accommodations & Supports,
+                    Common accommodations by job type,
+                    Assistive technology resources,
+                    Employee and supervisor communication templates,
+                    Procedures for requesting and reviewing accommodation,
+                    Retention & Advancement,
+                    Inclusive supervision and feedback practices,
+                    Career advancement supports for employees with disabilities,
+                    Data collection and tracking tools for DEI goals,
+                    Case studies of successful inclusion programs,
+                    Employer Resources & Toolkits,
+                    U.S. Department of Labor’s Employer Assistance and Resource Network on Disability Inclusion (EARN),
+                    Job Accommodation Network (JAN) resources or local disability employment resources
+
+    workplace_partnerships: Inclusive Workforce Partnerships & Community Collaboration,
+                            Interagency Collaboration,
+                            Sample MOUs or partnership agreements,
+                            Roles of DOR, Regional Centers, and Workforce Development Boards,
+                            Employer engagement strategies,
+                            Community-Based Supports,
+                            Job coaching and supported employment models,
+                            Transportation and independent living supports,
+                            Employer Outreach Materials,
+                            Sample employer recruitment flyers,
+                            Employer incentive information (e.g., Work Opportunity Tax Credit, paid internships)
+
+    evaluation: Evaluation, Impact, and Continuous Improvement,
+                Data Collection & Evaluation Tools,
+                Sample surveys for employers and employees,
+                Accessibility audit tools for workplaces,
+                Outcome metrics (e.g., placement, retention, satisfaction),
+                Reporting & Reflection,
+                Templates for quarterly or annual progress summaries,
+                Examples of visual dashboards or impact reports,
+                Feedback & Learning Loops,
+                Focus group protocols,
+                Reflection guides for continuous improvement cycles
+
+  collection_keywords:
+    application_interview_process: []
+  last_n_messages: 3
+  min_tokens: 150
+  router_model: gpt-oss:20b
+  router_temperature: 0.1
+  router_max_tokens: 500
+
+reranker:
+  model: BAAI/bge-reranker-v2-m3
+  top_k_rerank: 2
+  batch_size: 32
+  max_candidates_for_rerank: 30
+  activation: sigmoid

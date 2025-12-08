@@ -1,0 +1,31 @@
+# Core RAG Pipeline
+git+https://github.com/spencerau/Core_RAG.git
+
+# Streamlit UI
+streamlit>=1.30.0
+
+# Vector DB
+qdrant-client>=1.7.0
+
+# LLM Integration
+requests>=2.31.0
+
+# Document Processing
+tika>=2.6.0
+pypdf>=3.17.0
+tiktoken>=0.5.0
+
+# ML/Embeddings (optional - for reranking)
+sentence-transformers>=2.2.2
+FlagEmbedding>=1.2.0
+
+# LlamaIndex (for summary features)
+llama-index>=0.10.0
+llama-index-llms-ollama>=0.1.0
+
+# Testing
+pytest>=7.4.0
+
+# Utilities
+pyyaml>=6.0.1
+python-dotenv>=1.0.0
