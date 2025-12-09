@@ -252,20 +252,11 @@ def render_chat_tab():
                 st.markdown(prompt)
             
             with st.chat_message("assistant"):
-                message_placeholder = st.empty()
-                full_response = ""
-                
-                with st.spinner("Thinking..."):
+                with st.spinner("Routing query and retrieving documents..."):
                     response_gen, context_docs, collections = run_query(prompt, use_streaming=True)
                 
-                first_chunk = True
-                for chunk in response_gen:
-                    if first_chunk:
-                        full_response = chunk
-                        first_chunk = False
-                    else:
-                        full_response += chunk
-                    message_placeholder.markdown(full_response, unsafe_allow_html=True)
+                with st.spinner("Thinking..."):
+                    full_response = st.write_stream(response_gen)
                 
                 render_source_documents(context_docs, message_index=len(st.session_state.messages))
                 if collections:
@@ -281,40 +272,6 @@ def render_chat_tab():
     if st.button("Clear Chat History"):
         st.session_state.messages = []
         st.rerun()
-
-
-# def render_search_tab():
-#     st.header("Search Collections")
-    
-#     col1, col2 = st.columns([3, 1])
-    
-#     with col1:
-#         search_query = st.text_input("Search query:", placeholder="Enter your search...")
-    
-#     with col2:
-#         config = load_config()
-#         collections = config.get('qdrant', {}).get('collections', {})
-#         collection_options = list(collections.values())
-#         selected_collection = st.selectbox("Collection:", collection_options)
-    
-#     top_k = st.slider("Number of results:", min_value=1, max_value=20, value=5)
-    
-#     if st.button("Search", type="primary"):
-#         if search_query and st.session_state.initialized:
-#             results = search_collection(search_query, selected_collection, top_k)
-            
-#             if results:
-#                 st.subheader(f"Found {len(results)} results")
-#                 for i, result in enumerate(results, 1):
-#                     with st.expander(f"Result {i} (Score: {result.get('score', 'N/A'):.4f})"):
-#                         if 'chunk_text' in result.get('payload', {}):
-#                             st.markdown(result['payload']['chunk_text'])
-#                         if 'source_path' in result.get('payload', {}):
-#                             st.caption(f"Source: {result['payload']['source_path']}")
-#             else:
-#                 st.info("No results found")
-#         elif not st.session_state.initialized:
-#             st.warning("Please initialize the RAG system first.")
 
 
 def render_info_tab():
@@ -365,9 +322,6 @@ def run_app():
     
     with tab1:
         render_chat_tab()
-    
-    # with tab2:
-    #     render_search_tab()
     
     with tab2:
         render_info_tab()
