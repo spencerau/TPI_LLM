@@ -25,6 +25,42 @@ def client(config):
     )
 
 
+@pytest.fixture(scope="module")
+def ingestion(config):
+    """Create an ingestion instance once per test module, delete all collections, and re-ingest"""
+    ing = UnifiedIngestion(base_dir="data")
+    
+    try:
+        all_collections = ing.client.get_collections().collections
+        for collection in all_collections:
+            try:
+                ing.client.delete_collection(collection.name)
+                print(f"Deleted collection: {collection.name}")
+            except Exception as e:
+                print(f"Could not delete {collection.name}: {e}")
+    except Exception as e:
+        print(f"Warning: Could not list collections: {e}")
+    
+    try:
+        ing._ensure_collections_exist()
+        ing.docstore._ensure_collection()
+        
+        if ing.summary_indexer:
+            ing.summary_indexer._ensure_summary_collections()
+    except Exception as e:
+        print(f"Warning: Could not create collections: {e}")
+    
+    data_dirs = config.get('data', {})
+    print("\n=== Ingesting documents ===")
+    for name, path in data_dirs.items():
+        if os.path.exists(path):
+            print(f"Ingesting {name} from {path}...")
+            stats = ing.ingest_directory(path)
+            print(f"  Total: {stats.get('total_files', 0)}, Success: {stats.get('success_files', 0)}, Failed: {stats.get('failed_files', 0)}")
+    
+    return ing
+
+
 def test_data_directories_configured(config):
     data_dirs = config.get('data', {})
     assert len(data_dirs) > 0
@@ -36,6 +72,7 @@ def test_data_directories_exist(config):
         assert os.path.exists(path), f"Directory {path} does not exist"
 
 
+@pytest.mark.slow
 def test_clear_and_ingest_all(config, client):
     collections = config.get('qdrant', {}).get('collections', {})
     for name, collection_name in collections.items():
@@ -107,14 +144,14 @@ def test_clear_and_ingest_all(config, client):
     assert total_stats['success_files'] > 0
 
 
-def test_collections_have_documents(config, client):
+def test_collections_have_documents(config, ingestion):
     collections = config.get('qdrant', {}).get('collections', {})
     
     print("\n=== Collection Document Counts ===")
     total_docs = 0
     for name, collection_name in collections.items():
         try:
-            info = client.get_collection(collection_name)
+            info = ingestion.client.get_collection(collection_name)
             count = info.points_count
             total_docs += count
             print(f"{name}: {count} chunks")
@@ -124,7 +161,7 @@ def test_collections_have_documents(config, client):
     assert total_docs > 0
 
 
-def test_summaries_created(config, client):
+def test_summaries_created(config, ingestion):
     collections = config.get('qdrant', {}).get('collections', {})
     
     print("\n=== Summary Collection Counts ===")
@@ -132,7 +169,7 @@ def test_summaries_created(config, client):
     for name, collection_name in collections.items():
         summary_collection = f"{collection_name}_summaries"
         try:
-            info = client.get_collection(summary_collection)
+            info = ingestion.client.get_collection(summary_collection)
             count = info.points_count
             total_summaries += count
             print(f"{summary_collection}: {count} summaries")
@@ -143,11 +180,114 @@ def test_summaries_created(config, client):
         pytest.skip("No summaries created - may be due to LLM issues")
 
 
-def test_docstore_has_documents(config, client):
+def test_docstore_has_documents(config, ingestion):
     print("\n=== Docstore ===")
     try:
-        info = client.get_collection("docstore")
+        info = ingestion.client.get_collection("docstore")
         print(f"Docstore: {info.points_count} full documents")
         assert info.points_count > 0
     except Exception as e:
         pytest.fail(f"Docstore not found: {e}")
+
+
+def test_doc_ids_match_across_collections(config, ingestion):
+    collections = config.get('qdrant', {}).get('collections', {})
+    
+    print("\n=== Testing doc_id consistency ===")
+    
+    all_mismatches = []
+    
+    for name, collection_name in collections.items():
+        print(f"\nChecking collection: {name}")
+        
+        docstore_result = ingestion.client.scroll(
+            collection_name="docstore",
+            scroll_filter={
+                "must": [
+                    {
+                        "key": "collection_name",
+                        "match": {"value": name}
+                    }
+                ]
+            },
+            limit=100,
+            with_payload=True
+        )
+        
+        docstore_doc_ids = set()
+        for point in docstore_result[0]:
+            doc_id = point.payload.get('doc_id')
+            if doc_id:
+                docstore_doc_ids.add(doc_id)
+        
+        print(f"Docstore: {len(docstore_doc_ids)} doc_ids")
+        
+        summary_collection = f"{collection_name}_summaries"
+        try:
+            summary_result = ingestion.client.scroll(
+                collection_name=summary_collection,
+                limit=100,
+                with_payload=True
+            )
+            
+            summary_doc_ids = set()
+            for point in summary_result[0]:
+                doc_id = point.payload.get('doc_id')
+                if doc_id:
+                    summary_doc_ids.add(doc_id)
+            
+            print(f"Summaries: {len(summary_doc_ids)} doc_ids")
+            
+            if summary_doc_ids != docstore_doc_ids:
+                missing_in_docstore = summary_doc_ids - docstore_doc_ids
+                missing_in_summaries = docstore_doc_ids - summary_doc_ids
+                
+                if missing_in_docstore:
+                    print(f"Summary doc_ids NOT in docstore: {missing_in_docstore}")
+                    all_mismatches.append(f"{name}: {len(missing_in_docstore)} summary doc_ids not in docstore")
+                
+                if missing_in_summaries:
+                    print(f"Docstore doc_ids NOT in summaries: {missing_in_summaries}")
+                    all_mismatches.append(f"{name}: {len(missing_in_summaries)} docstore doc_ids not in summaries")
+            else:
+                print(f"Summary doc_ids match docstore")
+        
+        except Exception as e:
+            print(f"Could not check summaries: {e}")
+        
+        try:
+            chunk_result = ingestion.client.scroll(
+                collection_name=collection_name,
+                limit=100,
+                with_payload=True
+            )
+            
+            chunk_parent_ids = set()
+            for point in chunk_result[0]:
+                doc_id = point.payload.get('metadata', {}).get('doc_id') or point.payload.get('doc_id')
+                if doc_id:
+                    chunk_parent_ids.add(doc_id)
+            
+            print(f"Chunks: {len(chunk_parent_ids)} unique parent doc_ids")
+            
+            if chunk_parent_ids != docstore_doc_ids:
+                missing_in_docstore = chunk_parent_ids - docstore_doc_ids
+                missing_in_chunks = docstore_doc_ids - chunk_parent_ids
+                
+                if missing_in_docstore:
+                    print(f"Chunk parent doc_ids NOT in docstore: {missing_in_docstore}")
+                    all_mismatches.append(f"{name}: {len(missing_in_docstore)} chunk parent doc_ids not in docstore")
+                
+                if missing_in_chunks:
+                    print(f"Docstore doc_ids NOT referenced by chunks: {missing_in_chunks}")
+                    all_mismatches.append(f"{name}: {len(missing_in_chunks)} docstore doc_ids not referenced by chunks")
+            else:
+                print(f"Chunk parent doc_ids match docstore")
+        
+        except Exception as e:
+            print(f"Could not check chunks: {e}")
+    
+    if all_mismatches:
+        pytest.fail(f"Doc ID mismatches found:\n" + "\n".join(all_mismatches))
+    else:
+        print("\nAll doc_ids match across summaries, chunks, and docstore")

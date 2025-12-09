@@ -1,6 +1,7 @@
 qdrant:
   # Use 'qdrant' for Docker (service name), or 'localhost' when running services locally
-  host: qdrant
+  host: localhost
+  # host: qdrant
   port: 6333
   timeout: 60
   collections:
@@ -20,18 +21,20 @@ data:
 embedding:
   model: bge-m3:567m
   # ollama_host: localhost
-  ollama_host: dgx0.chapman.edu
+  #ollama_host: dgx0.chapman.edu
+  ollama_host: 192.168.200.110
   ollama_port: 11434
   timeout: 120
   keep_alive: 30m
   retry_attempts: 7
-  retry_delay: 1.5
-  rate_limit_delay: 1.5
-  batch_size: 32
+  retry_delay: 0
+  rate_limit_delay: 0
+  batch_size: 24
 
 llm:
-  primary_model: gpt-oss:120b
-  ollama_host: dgx0.chapman.edu
+  primary_model: gpt-oss:20b
+  #ollama_host: dgx0.chapman.edu
+  ollama_host: 192.168.200.110
   ollama_port: 11434
   timeout: 300
   keep_alive: 30m
@@ -46,7 +49,8 @@ llm:
     If you don't have enough information to answer, say so clearly.
   # router_host: localhost
   # router_port: 11434
-  router_host: dgx0.chapman.edu
+  #ollama_host: dgx0.chapman.edu
+  router_host: 192.168.200.110
   router_port: 11435
   router_timeout: 210
 
@@ -142,10 +146,10 @@ query_router:
   collection_keywords:
     application_interview_process: []
   last_n_messages: 3
-  min_tokens: 150
+  min_tokens: 2000  # Minimum tokens allocated per query (increased from 150 for more comprehensive answers)
   router_model: gpt-oss:20b
   router_temperature: 0.1
-  router_max_tokens: 500
+  router_max_tokens: 500  # Max tokens for router's own response (collection selection)
 
 reranker:
   model: BAAI/bge-reranker-v2-m3

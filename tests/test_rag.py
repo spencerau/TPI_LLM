@@ -146,3 +146,177 @@ def test_streaming_answer(rag):
     assert chunk_count > 0
     assert len(full_response) > 100
     assert isinstance(full_response, str)
+
+
+def test_no_output_truncation(rag):
+    """Test that LLM responses are not prematurely truncated"""
+    query = "What are some tips for preparing for job interviews?"
+    
+    result = rag.answer_question(
+        query,
+        stream=False,
+        use_summary_gating=False,
+        use_parent_docs=True
+    )
+    
+    assert result is not None
+    assert isinstance(result, str)
+    assert len(result) > 150, f"Response too short ({len(result)} chars), may be truncated: {result}"
+    
+    assert not result.endswith('|'), "Response ends with '|' - possible truncation"
+    
+    assert "interview" in result.lower() or "tip" in result.lower() or "prepare" in result.lower(), \
+        "Response doesn't contain relevant keywords - may be incomplete"
+    
+    result_stream = rag.answer_question(
+        query,
+        stream=True,
+        use_summary_gating=False,
+        use_parent_docs=True
+    )
+    
+    streamed_response = "".join(result_stream)
+    assert len(streamed_response) > 150, f"Streamed response too short ({len(streamed_response)} chars)"
+    assert not streamed_response.endswith('|'), "Streamed response ends with '|' - possible truncation"
+
+
+def test_application_interview_collection(rag):
+    """Test querying application_interview_process collection with parent docs"""
+    query = "What should I do to prepare for a job interview?"
+    
+    results = rag.search_collection(
+        query=query,
+        collection_name="application_interview_process",
+        top_k=10
+    )
+    
+    assert len(results) > 0, "No results from application_interview_process collection"
+    
+    answer = rag.answer_question(
+        query,
+        stream=False,
+        use_summary_gating=True,
+        use_parent_docs=True
+    )
+    
+    assert len(answer) > 100, f"Answer too short: {len(answer)} chars"
+    assert not answer.endswith('|'), "Answer appears truncated"
+    assert "interview" in answer.lower() or "prepare" in answer.lower()
+
+
+def test_legal_policy_collection(rag):
+    """Test querying legal_policy collection with parent docs"""
+    query = "What are the legal requirements for accessible interviews?"
+    
+    results = rag.search_collection(
+        query=query,
+        collection_name="legal_policy",
+        top_k=10
+    )
+    
+    assert len(results) > 0, "No results from legal_policy collection"
+    
+    answer = rag.answer_question(
+        query,
+        stream=False,
+        selected_collections=["legal_policy"],
+        use_summary_gating=True,
+        use_parent_docs=True
+    )
+    
+    assert len(answer) > 100, f"Answer too short: {len(answer)} chars"
+    assert not answer.endswith('|'), "Answer appears truncated"
+
+
+def test_best_practices_collection(rag):
+    """Test querying best_practices collection with parent docs"""
+    query = "What are best practices for workplace accommodations and assistive technology?"
+    
+    results = rag.search_collection(
+        query=query,
+        collection_name="best_practices",
+        top_k=10
+    )
+    
+    assert len(results) > 0, "No results from best_practices collection"
+    
+    answer = rag.answer_question(
+        query,
+        stream=False,
+        selected_collections=["best_practices"],
+        use_summary_gating=True,
+        use_parent_docs=True
+    )
+    
+    assert len(answer) > 100, f"Answer too short: {len(answer)} chars"
+    assert not answer.endswith('|'), "Answer appears truncated"
+    assert "accommodation" in answer.lower() or "workplace" in answer.lower() or "technology" in answer.lower()
+
+
+def test_workplace_partnerships_collection(rag):
+    """Test querying workplace_partnerships collection with parent docs"""
+    query = "How can employers engage with workforce development programs?"
+    
+    results = rag.search_collection(
+        query=query,
+        collection_name="workplace_partnerships",
+        top_k=10
+    )
+    
+    assert len(results) > 0, "No results from workplace_partnerships collection"
+    
+    answer = rag.answer_question(
+        query,
+        stream=False,
+        selected_collections=["workplace_partnerships"],
+        use_summary_gating=True,
+        use_parent_docs=True
+    )
+    
+    assert len(answer) > 100, f"Answer too short: {len(answer)} chars"
+    assert not answer.endswith('|'), "Answer appears truncated"
+    assert "employer" in answer.lower() or "engagement" in answer.lower() or "workforce" in answer.lower()
+
+
+def test_evaluation_collection(rag):
+    """Test querying evaluation collection with parent docs"""
+    query = "What are the employment skills development criteria?"
+    
+    results = rag.search_collection(
+        query=query,
+        collection_name="evaluation",
+        top_k=10
+    )
+    
+    assert len(results) > 0, "No results from evaluation collection"
+    
+    answer = rag.answer_question(
+        query,
+        stream=False,
+        selected_collections=["evaluation"],
+        use_summary_gating=True,
+        use_parent_docs=True
+    )
+    
+    assert len(answer) > 100, f"Answer too short: {len(answer)} chars"
+    assert not answer.endswith('|'), "Answer appears truncated"
+    assert "skill" in answer.lower() or "employment" in answer.lower() or "development" in answer.lower()
+
+
+def test_parent_docs_retrieval(rag):
+    """Test that parent documents are properly retrieved and complete"""
+    query = "Tell me about job interview preparation"
+    
+    context_docs = rag.search_with_summary_gating(query)
+    
+    assert len(context_docs) > 0, "No context documents retrieved"
+    
+    for doc in context_docs[:3]:
+        if 'parent_text' in doc:
+            parent_text = doc['parent_text']
+            assert len(parent_text) > 500, f"Parent doc too short: {len(parent_text)} chars - may not be full document"
+            assert not parent_text.endswith('|'), "Parent doc appears truncated"
+        elif 'text' in doc:
+            text = doc['text']
+            assert len(text) > 100, f"Doc text too short: {len(text)} chars"
+

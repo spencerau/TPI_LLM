@@ -41,10 +41,25 @@ def get_collection_stats():
     
     for name, collection_name in collections.items():
         try:
-            info = st.session_state.rag.client.get_collection(collection_name)
+            scroll_result = st.session_state.rag.client.scroll(
+                collection_name="docstore",
+                scroll_filter={
+                    "must": [
+                        {
+                            "key": "collection_name",
+                            "match": {"value": collection_name}
+                        }
+                    ]
+                },
+                limit=10000,
+                with_payload=True
+            )
+            
+            parent_doc_count = len(scroll_result[0]) if scroll_result else 0
+            
             stats[name] = {
                 'collection_name': collection_name,
-                'points_count': info.points_count,
+                'points_count': parent_doc_count,
                 'status': 'active'
             }
         except Exception as e:
@@ -58,28 +73,33 @@ def get_collection_stats():
 
 def run_query(query: str, use_streaming: bool = True):
     if not st.session_state.rag:
-        return "RAG system not initialized", []
+        return "RAG system not initialized", [], None
     
     try:
-        context_docs = st.session_state.rag.search_with_summary_gating(query)
-        
         result = st.session_state.rag.answer_question(
             query,
             stream=use_streaming,
+            selected_collections=None,
             use_parent_docs=True,
-            use_summary_gating=True
+            use_summary_gating=True,
+            return_debug_info=True,
+            enable_thinking=True,
+            show_thinking=False
         )
         
         if use_streaming:
-            full_response = ""
-            for chunk in result:
-                full_response += chunk
-            return full_response, context_docs
+            gen, context_docs, debug = result
+            selected_collections = debug.get('collections_searched', [])
+            return gen, context_docs, selected_collections
         else:
-            return result, context_docs
+            answer, context_docs, debug = result
+            selected_collections = debug.get('collections_searched', [])
+            return answer, context_docs, selected_collections
     except Exception as e:
-        return f"Error: {str(e)}", []
-
+        import traceback
+        st.error(f"Query error: {str(e)}")
+        st.error(f"Traceback: {traceback.format_exc()}")
+        return f"Error: {str(e)}", [], None
 
 def search_collection(query: str, collection_name: str, top_k: int = 5):
     if not st.session_state.rag:
@@ -170,35 +190,41 @@ def render_source_documents(context_docs, message_index=None):
                 payload = doc['payload']
                 source_path = payload.get('source_path', 'Unknown')
                 doc_id = payload.get('parent_doc_id') or payload.get('doc_id', 'N/A')
+                title = payload.get('title', source_path)
                 text = payload.get('full_text') or payload.get('chunk_text', '')
                 score = doc.get('score', 0)
             else:
-                source_path = doc.get('source_path', 'Unknown')
-                doc_id = doc.get('doc_id', 'N/A')
+                metadata = doc.get('metadata', {})
+                source_path = doc.get('source_path') or metadata.get('source_path', 'Unknown')
+                doc_id = doc.get('doc_id') or metadata.get('doc_id', 'N/A')
+                title = doc.get('title') or metadata.get('title', source_path)
                 text = doc.get('text', '')
                 score = doc.get('score', 0)
             
-            if source_path not in unique_docs:
-                unique_docs[source_path] = {
+            key = doc_id if doc_id != 'N/A' else source_path
+            if key not in unique_docs:
+                unique_docs[key] = {
                     'score': score,
                     'path': source_path,
                     'doc_id': doc_id,
+                    'title': title,
                     'text': text
                 }
     
     expander_key = f"sources_{message_index}" if message_index is not None else None
     with st.expander(f"View {len(unique_docs)} Source Documents"):
-        for i, (path, doc_info) in enumerate(unique_docs.items(), 1):
-            st.markdown(f"**Source {i}** (Score: {doc_info['score']:.4f})")
-            st.caption(f"{doc_info['path']}")
+        for i, (key, doc_info) in enumerate(unique_docs.items(), 1):
+            st.markdown(f"**Source {i}**: {doc_info['title']}")
+            st.caption(f"Score: {doc_info['score']:.4f}")
+            st.caption(f"Path: {doc_info['path']}")
             st.caption(f"Document ID: {doc_info['doc_id']}")
             
-            key = f"source_{i}_{message_index}" if message_index else f"source_{i}"
+            text_key = f"source_{i}_{message_index}" if message_index else f"source_{i}"
             st.text_area(
                 f"Content {i}",
                 doc_info['text'][:3000],
                 height=200,
-                key=key
+                key=text_key
             )
             st.divider()
 
@@ -210,8 +236,12 @@ def render_chat_tab():
         with st.chat_message(message["role"]):
             st.markdown(message["content"], unsafe_allow_html=True)
             
-            if message["role"] == "assistant" and "sources" in message and message["sources"]:
-                render_source_documents(message["sources"], message_index=idx)
+            if message["role"] == "assistant":
+                if "sources" in message and message["sources"]:
+                    render_source_documents(message["sources"], message_index=idx)
+                
+                if "collections" in message and message["collections"]:
+                    st.caption(f"Searched collections: {', '.join(message['collections'])}")
     
     if prompt := st.chat_input("Ask a question about TPI employment resources..."):
         if not st.session_state.initialized:
@@ -222,50 +252,69 @@ def render_chat_tab():
                 st.markdown(prompt)
             
             with st.chat_message("assistant"):
+                message_placeholder = st.empty()
+                full_response = ""
+                
                 with st.spinner("Thinking..."):
-                    response, context_docs = run_query(prompt)
-                st.markdown(response, unsafe_allow_html=True)
+                    response_gen, context_docs, collections = run_query(prompt, use_streaming=True)
+                
+                first_chunk = True
+                for chunk in response_gen:
+                    if first_chunk:
+                        full_response = chunk
+                        first_chunk = False
+                    else:
+                        full_response += chunk
+                    message_placeholder.markdown(full_response, unsafe_allow_html=True)
+                
                 render_source_documents(context_docs, message_index=len(st.session_state.messages))
+                if collections:
+                    st.caption(f"Searched collections: {', '.join(collections)}")
             
-            st.session_state.messages.append({"role": "assistant", "content": response, "sources": context_docs})
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": full_response,
+                "sources": context_docs,
+                "collections": collections
+            })
     
     if st.button("Clear Chat History"):
         st.session_state.messages = []
         st.rerun()
 
 
-def render_search_tab():
-    st.header("Search Collections")
+# def render_search_tab():
+#     st.header("Search Collections")
     
-    col1, col2 = st.columns([3, 1])
+#     col1, col2 = st.columns([3, 1])
     
-    with col1:
-        search_query = st.text_input("Search query:", placeholder="Enter your search...")
+#     with col1:
+#         search_query = st.text_input("Search query:", placeholder="Enter your search...")
     
-    with col2:
-        config = load_config()
-        collections = config.get('qdrant', {}).get('collections', {})
-        collection_options = list(collections.values())
-        selected_collection = st.selectbox("Collection:", collection_options)
+#     with col2:
+#         config = load_config()
+#         collections = config.get('qdrant', {}).get('collections', {})
+#         collection_options = list(collections.values())
+#         selected_collection = st.selectbox("Collection:", collection_options)
     
-    top_k = st.slider("Number of results:", min_value=1, max_value=20, value=5)
+#     top_k = st.slider("Number of results:", min_value=1, max_value=20, value=5)
     
-    if st.button("Search", type="primary"):
-        if search_query and st.session_state.initialized:
-            results = search_collection(search_query, selected_collection, top_k)
+#     if st.button("Search", type="primary"):
+#         if search_query and st.session_state.initialized:
+#             results = search_collection(search_query, selected_collection, top_k)
             
-            if results:
-                st.subheader(f"Found {len(results)} results")
-                for i, result in enumerate(results, 1):
-                    with st.expander(f"Result {i} (Score: {result.get('score', 'N/A'):.4f})"):
-                        if 'chunk_text' in result.get('payload', {}):
-                            st.markdown(result['payload']['chunk_text'])
-                        if 'source_path' in result.get('payload', {}):
-                            st.caption(f"Source: {result['payload']['source_path']}")
-            else:
-                st.info("No results found")
-        elif not st.session_state.initialized:
-            st.warning("Please initialize the RAG system first.")
+#             if results:
+#                 st.subheader(f"Found {len(results)} results")
+#                 for i, result in enumerate(results, 1):
+#                     with st.expander(f"Result {i} (Score: {result.get('score', 'N/A'):.4f})"):
+#                         if 'chunk_text' in result.get('payload', {}):
+#                             st.markdown(result['payload']['chunk_text'])
+#                         if 'source_path' in result.get('payload', {}):
+#                             st.caption(f"Source: {result['payload']['source_path']}")
+#             else:
+#                 st.info("No results found")
+#         elif not st.session_state.initialized:
+#             st.warning("Please initialize the RAG system first.")
 
 
 def render_info_tab():
@@ -296,7 +345,6 @@ def render_info_tab():
     1. Initialize: Click Initialize RAG System in the sidebar
     2. Ingest: Use the ingestion section to load documents (if needed)
     3. Chat: Ask questions in the Chat tab
-    4. Search: Use the Search tab to explore specific collections
     """)
 
 
@@ -313,13 +361,13 @@ def run_app():
     
     render_sidebar()
     
-    tab1, tab2, tab3 = st.tabs(["Chat", "Search", "Info"])
+    tab1, tab2 = st.tabs(["Chat", "Info"])
     
     with tab1:
         render_chat_tab()
     
-    with tab2:
-        render_search_tab()
+    # with tab2:
+    #     render_search_tab()
     
-    with tab3:
+    with tab2:
         render_info_tab()
