@@ -80,6 +80,92 @@ summary:
 
 query_router:
   default_collections: [application_interview_process, legal_policy, best_practices, workplace_partnerships, evaluation]
+  # collection_descriptions:
+  # application_interview_process:
+  #   title: "Job Application & Interview Process for People with Disabilities (PWD)"
+  #   sections:
+  #     - name: "Application Supports"
+  #       items:
+  #         - "Accessible job descriptions (examples/templates)"
+  #         - "Guidance on inclusive language in job postings"
+  #         - "Tips for applicants with disabilities (resume, disclosure, accommodation requests)"
+  #         - "Employer checklists for accessibility in the application process"
+  #     - name: "Interview Preparation & Accessibility"
+  #       items:
+  #         - "Interview best practices for candidates with disabilities"
+  #         - "Employer training on bias-free interviewing"
+  #         - "Reasonable accommodations in interviews (virtual & in-person)"
+  #         - "Sample interview questions that align with essential job functions"
+  # legal_policy:
+  #   title: "Legal & Policy Resources"
+  #   items:
+  #     - "ADA & Section 504 employer obligations"
+  #     - "California Fair Employment and Housing Act (FEHA) overview (if CA-specific)"
+  #     - "Reasonable accommodation guidance"
+  #     - "Templates for accommodation documentation"
+  #     - "State and federal policy briefs (WIOA, IDEA transition, etc.)"
+
+  # best_practices:
+  #   title: "Best Practices for Supporting PWD in the Workplace"
+  #   sections:
+  #     - name: "Onboarding & Training"
+  #       items:
+  #         - "Inclusive onboarding checklist"
+  #         - "Accessibility training modules"
+  #         - "Peer mentor or job coach resources"
+  #         - "Sample individualized onboarding plans"
+  #     - name: "Workplace Accommodations & Supports"
+  #       items:
+  #         - "Common accommodations by job type"
+  #         - "Assistive technology resources"
+  #         - "Employee and supervisor communication templates"
+  #         - "Procedures for requesting and reviewing accommodation"
+  #     - name: "Retention & Advancement"
+  #       items:
+  #         - "Inclusive supervision and feedback practices"
+  #         - "Career advancement supports for employees with disabilities"
+  #         - "Data collection and tracking tools for DEI goals"
+  #         - "Case studies of successful inclusion programs"
+  #     - name: "Employer Resources & Toolkits"
+  #       items:
+  #         - "U.S. Department of Labor’s Employer Assistance and Resource Network on Disability Inclusion (EARN)"
+  #         - "Job Accommodation Network (JAN) resources"
+  #         - "Local disability employment resources"
+
+  # workplace_partnerships:
+  #   title: "Inclusive Workforce Partnerships & Community Collaboration"
+  #   sections:
+  #     - name: "Interagency Collaboration"
+  #       items:
+  #         - "Sample MOUs or partnership agreements"
+  #         - "Roles of DOR, Regional Centers, and Workforce Development Boards"
+  #         - "Employer engagement strategies"
+  #     - name: "Community-Based Supports"
+  #       items:
+  #         - "Job coaching and supported employment models"
+  #         - "Transportation and independent living supports"
+  #     - name: "Employer Outreach Materials"
+  #       items:
+  #         - "Sample employer recruitment flyers"
+  #         - "Employer incentive information (e.g., Work Opportunity Tax Credit, paid internships)"
+
+  # evaluation:
+  #   title: "Evaluation, Impact, and Continuous Improvement"
+  #   sections:
+  #     - name: "Data Collection & Evaluation Tools"
+  #       items:
+  #         - "Sample surveys for employers and employees"
+  #         - "Accessibility audit tools for workplaces"
+  #         - "Outcome metrics (placement, retention, satisfaction)"
+  #     - name: "Reporting & Reflection"
+  #       items:
+  #         - "Templates for quarterly or annual progress summaries"
+  #         - "Examples of visual dashboards or impact reports"
+  #     - name: "Feedback & Learning Loops"
+  #       items:
+  #         - "Focus group protocols"
+  #         - "Reflection guides for continuous improvement cycles"
+  
   collection_descriptions:
     application_interview_process: Job Application & Interview Process for People with Disabilities (PWD), 
                      Application Supports, Accessible job descriptions (examples/templates), 

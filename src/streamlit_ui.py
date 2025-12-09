@@ -248,19 +248,14 @@ def render_chat_tab():
             st.warning("Please initialize the RAG system first using the sidebar button.")
         else:
             st.session_state.messages.append({"role": "user", "content": prompt})
-            with st.chat_message("user"):
-                st.markdown(prompt)
             
-            with st.chat_message("assistant"):
-                with st.spinner("Routing query and retrieving documents..."):
-                    response_gen, context_docs, collections = run_query(prompt, use_streaming=True)
-                
-                with st.spinner("Thinking..."):
-                    full_response = st.write_stream(response_gen)
-                
-                render_source_documents(context_docs, message_index=len(st.session_state.messages))
-                if collections:
-                    st.caption(f"Searched collections: {', '.join(collections)}")
+            with st.spinner("Routing query and retrieving documents..."):
+                response_gen, context_docs, collections = run_query(prompt, use_streaming=True)
+            
+            with st.spinner("Thinking..."):
+                full_response = ""
+                for chunk in response_gen:
+                    full_response += chunk
             
             st.session_state.messages.append({
                 "role": "assistant",
@@ -268,6 +263,7 @@ def render_chat_tab():
                 "sources": context_docs,
                 "collections": collections
             })
+            st.rerun()
     
     if st.button("Clear Chat History"):
         st.session_state.messages = []

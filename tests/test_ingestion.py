@@ -28,27 +28,26 @@ def client(config):
 @pytest.fixture(scope="module")
 def ingestion(config):
     """Create an ingestion instance once per test module, delete all collections, and re-ingest"""
-    ing = UnifiedIngestion(base_dir="data")
     
+    client = QdrantClient(
+        host=config['qdrant']['host'],
+        port=config['qdrant']['port'],
+        timeout=config['qdrant']['timeout']
+    )
+    
+    print("\n=== Deleting all collections ===")
     try:
-        all_collections = ing.client.get_collections().collections
+        all_collections = client.get_collections().collections
         for collection in all_collections:
             try:
-                ing.client.delete_collection(collection.name)
+                client.delete_collection(collection.name)
                 print(f"Deleted collection: {collection.name}")
             except Exception as e:
                 print(f"Could not delete {collection.name}: {e}")
     except Exception as e:
         print(f"Warning: Could not list collections: {e}")
     
-    try:
-        ing._ensure_collections_exist()
-        ing.docstore._ensure_collection()
-        
-        if ing.summary_indexer:
-            ing.summary_indexer._ensure_summary_collections()
-    except Exception as e:
-        print(f"Warning: Could not create collections: {e}")
+    ing = UnifiedIngestion(base_dir="data")
     
     data_dirs = config.get('data', {})
     print("\n=== Ingesting documents ===")
@@ -72,76 +71,34 @@ def test_data_directories_exist(config):
         assert os.path.exists(path), f"Directory {path} does not exist"
 
 
-@pytest.mark.slow
-def test_clear_and_ingest_all(config, client):
+def test_clear_and_ingest_all(config, ingestion):
     collections = config.get('qdrant', {}).get('collections', {})
-    for name, collection_name in collections.items():
-        try:
-            client.delete_collection(collection_name)
-            print(f"Deleted collection: {collection_name}")
-        except Exception:
-            pass
-        try:
-            client.delete_collection(f"{collection_name}_summaries")
-            print(f"Deleted summary collection: {collection_name}_summaries")
-        except Exception:
-            pass
-    
-    try:
-        client.delete_collection("docstore")
-        print("Deleted docstore collection")
-    except Exception:
-        pass
-    
-    time.sleep(1)
-    
     data_dirs = config.get('data', {})
-    collections = config.get('qdrant', {}).get('collections', {})
-    total_stats = {'total_files': 0, 'success_files': 0, 'failed_files': 0}
+    
+    total_docs = 0
     collection_stats = {}
     
-    for collection_key, path in data_dirs.items():
-        if not os.path.exists(path):
-            print(f"Path does not exist: {path}")
-            continue
-        
-        collection_name = collections.get(collection_key, collection_key)
-        ingestion = UnifiedIngestion(base_dir=path, collection_name=collection_name)
-        
-        files = list(Path(path).rglob('*'))
-        files = [f for f in files if f.is_file() and f.suffix.lower() in ['.md', '.pdf', '.json']]
-        files = [f for f in files if 'readme' not in f.name.lower() and not f.name.startswith('._')]
-        
-        print(f"\n=== Ingesting {len(files)} files from {path} ===")
-        
-        success_count = 0
-        for file_path in files:
-            try:
-                print(f"  Processing: {file_path.name}")
-                time.sleep(2)
-                success = ingestion.ingest_file(str(file_path))
-                if success:
-                    success_count += 1
-                    print(f"  OK: {file_path.name}")
-                else:
-                    print(f"  FAIL: {file_path.name}")
-                time.sleep(3)
-            except Exception as e:
-                print(f"  ERROR: {file_path.name} - {e}")
-        
-        total_stats['total_files'] += len(files)
-        total_stats['success_files'] += success_count
-        total_stats['failed_files'] += len(files) - success_count
-        collection_stats[collection_key] = {'total': len(files), 'success': success_count}
+    print(f"\n=== Verifying Ingestion Results ===")
+    
+    for name, collection_name in collections.items():
+        try:
+            info = ingestion.client.get_collection(collection_name)
+            count = info.points_count
+            total_docs += count
+            collection_stats[name] = count
+            print(f"{name}: {count} chunks")
+        except Exception as e:
+            print(f"{name}: Error - {e}")
+            collection_stats[name] = 0
     
     print(f"\n=== Final Stats ===")
-    print(f"Total: {total_stats['success_files']}/{total_stats['total_files']} files")
+    print(f"Total documents across all collections: {total_docs}")
     
-    for name, stats in collection_stats.items():
-        print(f"  {name}: {stats['success']}/{stats['total']}")
+    for name, count in collection_stats.items():
+        print(f"  {name}: {count}")
     
-    assert total_stats['total_files'] > 0
-    assert total_stats['success_files'] > 0
+    assert total_docs > 0, "No documents ingested"
+    assert len([c for c in collection_stats.values() if c > 0]) > 0, "No collections have documents"
 
 
 def test_collections_have_documents(config, ingestion):
