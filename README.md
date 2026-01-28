@@ -7,15 +7,12 @@ Job Training / Job Coach for both employees and employers within the context of 
 - `python3.12 -m venv .venv`
 - `source .venv/bin/acticate`
 - `pip install -r requirements.txt`
-<br>
 
 2. Placeholder here about installing public ssh keys onto compute cluster
-<br>
 
 3. Run ingestion and web UI
 - `python src/ingest.py`
 - `streamlit run src/streamlit_ui.py`
-<br>
 
 4. Run tests:
 - `pytest -q`
@@ -29,15 +26,11 @@ Job Training / Job Coach for both employees and employers within the context of 
 
 ## TODO: 
 - Memory feature to save chat history (prob need to update Core_RAG for this)
-<br>
 
 - Switch to vLLM (or SGLang?) instead of using Ollama
-<br>
 
 - Switch Document ingestion to use DocLing (or Deepseek-OCR-2?)
-<br>
 
 - Pull from an online source for documents for ingestion pipeline
-<br>
 
 - Unsloth AI (or another fine tuning framework) to finetune model to data?
