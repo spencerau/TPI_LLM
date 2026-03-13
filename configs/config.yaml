@@ -1,7 +1,7 @@
 qdrant:
   # Use 'qdrant' for Docker (service name), or 'localhost' when running services locally
-  host: localhost
-  # host: qdrant
+  # host: localhost
+  host: qdrant
   port: 6333
   timeout: 60
   collections:
@@ -18,52 +18,16 @@ data:
   workplace_partnerships: tpi_documents/workplace_partnerships
   evaluation: tpi_documents/evaluation_impact_continuousImprovement
 
-embedding:
-  model: bge-m3:567m
-  # ollama_host: localhost
-  #ollama_host: dgx0.chapman.edu
-  ollama_host: 192.168.200.110
-  ollama_port: 11434
-  timeout: 120
-  keep_alive: 30m
-  retry_attempts: 7
-  retry_delay: 0
-  rate_limit_delay: 0
-  batch_size: 24
-
-llm:
-  primary_model: gpt-oss:20b
-  #ollama_host: dgx0.chapman.edu
-  ollama_host: 192.168.200.110
-  ollama_port: 11434
-  timeout: 300
-  keep_alive: 30m
-  temperature: 0.1
-  max_tokens: 25000
-  num_ctx: 128000
-  system_prompt: |
-    You are a helpful assistant specializing in employment resources for people with disabilities.
-    You help answer questions about job applications, interviews, workplace accommodations, 
-    legal policies, and best practices for inclusive employment.
-    Answer questions based on the provided context from TPI (Thompson Policy Institute of Disability) documents.
-    If you don't have enough information to answer, say so clearly.
-  # router_host: localhost
-  # router_port: 11434
-  #ollama_host: dgx0.chapman.edu
-  router_host: 192.168.200.110
-  router_port: 11435
-  router_timeout: 210
-
 chunker:
   strategy: recursive
   target_tokens: 768
-  min_tokens: 300
+  min_tokens: 100
   overlap_ratio: 0.15
   respect_headings: true
 
 retrieval:
-  top_k: 4
-  rerank_top_k: 2
+  top_k: 5
+  rerank_top_k: 15
 
 rag:
   base_chunks_per_collection: 8
@@ -80,91 +44,6 @@ summary:
 
 query_router:
   default_collections: [application_interview_process, legal_policy, best_practices, workplace_partnerships, evaluation]
-  # collection_descriptions:
-  # application_interview_process:
-  #   title: "Job Application & Interview Process for People with Disabilities (PWD)"
-  #   sections:
-  #     - name: "Application Supports"
-  #       items:
-  #         - "Accessible job descriptions (examples/templates)"
-  #         - "Guidance on inclusive language in job postings"
-  #         - "Tips for applicants with disabilities (resume, disclosure, accommodation requests)"
-  #         - "Employer checklists for accessibility in the application process"
-  #     - name: "Interview Preparation & Accessibility"
-  #       items:
-  #         - "Interview best practices for candidates with disabilities"
-  #         - "Employer training on bias-free interviewing"
-  #         - "Reasonable accommodations in interviews (virtual & in-person)"
-  #         - "Sample interview questions that align with essential job functions"
-  # legal_policy:
-  #   title: "Legal & Policy Resources"
-  #   items:
-  #     - "ADA & Section 504 employer obligations"
-  #     - "California Fair Employment and Housing Act (FEHA) overview (if CA-specific)"
-  #     - "Reasonable accommodation guidance"
-  #     - "Templates for accommodation documentation"
-  #     - "State and federal policy briefs (WIOA, IDEA transition, etc.)"
-
-  # best_practices:
-  #   title: "Best Practices for Supporting PWD in the Workplace"
-  #   sections:
-  #     - name: "Onboarding & Training"
-  #       items:
-  #         - "Inclusive onboarding checklist"
-  #         - "Accessibility training modules"
-  #         - "Peer mentor or job coach resources"
-  #         - "Sample individualized onboarding plans"
-  #     - name: "Workplace Accommodations & Supports"
-  #       items:
-  #         - "Common accommodations by job type"
-  #         - "Assistive technology resources"
-  #         - "Employee and supervisor communication templates"
-  #         - "Procedures for requesting and reviewing accommodation"
-  #     - name: "Retention & Advancement"
-  #       items:
-  #         - "Inclusive supervision and feedback practices"
-  #         - "Career advancement supports for employees with disabilities"
-  #         - "Data collection and tracking tools for DEI goals"
-  #         - "Case studies of successful inclusion programs"
-  #     - name: "Employer Resources & Toolkits"
-  #       items:
-  #         - "U.S. Department of Labor’s Employer Assistance and Resource Network on Disability Inclusion (EARN)"
-  #         - "Job Accommodation Network (JAN) resources"
-  #         - "Local disability employment resources"
-
-  # workplace_partnerships:
-  #   title: "Inclusive Workforce Partnerships & Community Collaboration"
-  #   sections:
-  #     - name: "Interagency Collaboration"
-  #       items:
-  #         - "Sample MOUs or partnership agreements"
-  #         - "Roles of DOR, Regional Centers, and Workforce Development Boards"
-  #         - "Employer engagement strategies"
-  #     - name: "Community-Based Supports"
-  #       items:
-  #         - "Job coaching and supported employment models"
-  #         - "Transportation and independent living supports"
-  #     - name: "Employer Outreach Materials"
-  #       items:
-  #         - "Sample employer recruitment flyers"
-  #         - "Employer incentive information (e.g., Work Opportunity Tax Credit, paid internships)"
-
-  # evaluation:
-  #   title: "Evaluation, Impact, and Continuous Improvement"
-  #   sections:
-  #     - name: "Data Collection & Evaluation Tools"
-  #       items:
-  #         - "Sample surveys for employers and employees"
-  #         - "Accessibility audit tools for workplaces"
-  #         - "Outcome metrics (placement, retention, satisfaction)"
-  #     - name: "Reporting & Reflection"
-  #       items:
-  #         - "Templates for quarterly or annual progress summaries"
-  #         - "Examples of visual dashboards or impact reports"
-  #     - name: "Feedback & Learning Loops"
-  #       items:
-  #         - "Focus group protocols"
-  #         - "Reflection guides for continuous improvement cycles"
   
   collection_descriptions:
     application_interview_process: Job Application & Interview Process for People with Disabilities (PWD), 
@@ -232,14 +111,14 @@ query_router:
   collection_keywords:
     application_interview_process: []
   last_n_messages: 3
-  min_tokens: 2000  # Minimum tokens allocated per query (increased from 150 for more comprehensive answers)
-  router_model: gpt-oss:20b
-  router_temperature: 0.1
-  router_max_tokens: 500  # Max tokens for router's own response (collection selection)
+  min_tokens: 2000
 
-reranker:
-  model: BAAI/bge-reranker-v2-m3
-  top_k_rerank: 2
-  batch_size: 32
-  max_candidates_for_rerank: 30
-  activation: sigmoid
+postgresql:
+  host: postgres
+  port: 5432
+  user: postgres
+  password: postgres
+  db: tpi_rag
+
+memory:
+  compression_trigger: 5

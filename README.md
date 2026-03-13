@@ -14,6 +14,12 @@ Job Training / Job Coach for both employees and employers within the context of 
 - `python src/ingest.py`
 - `streamlit run src/streamlit_ui.py`
 
+## Misc
+
+`docker compose up -d`
+
+Get URL: `docker compose logs cloudflared`
+
 4. Run tests:
 - `pytest -q`
 
